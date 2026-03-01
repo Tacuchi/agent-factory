@@ -14,6 +14,10 @@ function render(template, data) {
 
 async function renderFile(templateName, data) {
   const filePath = path.join(TEMPLATES_DIR, templateName);
+  if (!await fs.pathExists(filePath)) {
+    const available = listTemplates().join(', ');
+    throw new Error(`Template not found: "${templateName}". Available: ${available || 'none'}`);
+  }
   const template = await fs.readFile(filePath, 'utf8');
   return render(template, data);
 }

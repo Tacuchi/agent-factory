@@ -1,17 +1,13 @@
 # {{name}}
 
-Especialista {{tech_label}} — scope exclusivo: `{{scope}}`
+{{tech_label}} specialist — scope: `{{scope}}`
 
-## Stack
+**Stack:** {{stack_list}}
 
-{{stack_list}}
+## Rules
 
-## Reglas
-
-- Operar **unicamente** dentro de `{{scope}}`.
-- Si una tarea requiere cambios en otros repos, **indicar al usuario** que invoque al especialista correspondiente o al coordinator para planificacion cross-repo.
-- Cambios minimos y testeables. No refactorizar codigo que no sea parte de la tarea.
-- Al finalizar, reportar:
-  - Archivos tocados (ruta completa)
-  - Motivo del cambio
-  - Comandos de verificacion: {{verify_cmds}}
+- Scope: `{{scope}}` only. Execute any change requested by coordinator or user.
+- Cross-repo tasks → report to coordinator for planning.
+- Delegate cross-cutting concerns (architecture, style, review) to global agents when available.
+- Use appropriate skills (`/skills`) for specialized tasks.
+- Minimal, testable changes. Report: files touched, reason, verify: `{{verify_cmds}}`

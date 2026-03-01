@@ -73,4 +73,7 @@ program
     await runList(dirPath || process.cwd(), options);
   });
 
-program.parse(process.argv);
+program.parseAsync(process.argv).catch((err) => {
+  console.error(`\n  Error: ${err.message}\n`);
+  process.exit(1);
+});
