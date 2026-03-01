@@ -25,9 +25,14 @@ async function runCreate(options = {}) {
       stackResult = await detect(scope);
     }
 
+    const techLabel = stackResult.framework
+      ? `${stackResult.framework} (${stackResult.primaryTech})`
+      : stackResult.primaryTech;
+
     const templateData = {
       name,
       primary_tech: stackResult.primaryTech,
+      tech_label: techLabel,
       framework: stackResult.framework,
       scope: scope || '.',
       stack_list: stackResult.stackParts.length > 0
@@ -38,8 +43,6 @@ async function runCreate(options = {}) {
       specialist_list: formatSpecialistList(specialists),
       N: repoCount ? String(repoCount) : '',
       repos_word: repoCount === 1 ? 'repositorio' : 'repositorios',
-      skills_section: '',
-      mcp_section: '',
     };
 
     const templateFile = `${role}.md.tmpl`;
