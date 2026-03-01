@@ -112,6 +112,20 @@ async function detect(repoPath) {
         verifyCommands = 'npm run build, npm test';
         stackParts.push('Node.js');
       }
+
+      // Fallback: Node.js CLI (has bin field) or plain JS
+      if (!primaryTech && pkg) {
+        if (pkg.bin) {
+          primaryTech = 'Node.js';
+          framework = 'CLI';
+          verifyCommands = 'npm test';
+          stackParts.push('Node.js', 'CLI');
+        } else {
+          primaryTech = 'JavaScript';
+          verifyCommands = 'npm test';
+          stackParts.push('JavaScript');
+        }
+      }
     }
   }
 
@@ -264,6 +278,26 @@ async function detect(repoPath) {
         verifyCommands = 'ruby -c';
         stackParts.push('Ruby');
       }
+    }
+  }
+
+  // --- Shell / Bash ---
+  if (!primaryTech) {
+    const shFiles = await findFiles(abs, ['.sh'], 1);
+    if (shFiles.length > 0) {
+      primaryTech = 'Bash';
+      framework = 'Shell';
+      verifyCommands = 'bash -n *.sh, shellcheck *.sh';
+      stackParts.push('Bash', 'Shell');
+    }
+  }
+
+  // --- Makefile (standalone) ---
+  if (!primaryTech) {
+    if (await fs.pathExists(path.join(abs, 'Makefile'))) {
+      primaryTech = 'Make';
+      verifyCommands = 'make';
+      stackParts.push('Make');
     }
   }
 

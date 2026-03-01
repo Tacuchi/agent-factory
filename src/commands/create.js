@@ -10,7 +10,7 @@ async function runCreate(options = {}) {
   const isInteractive = !options.name;
   const config = isInteractive ? await askCreateOptions() : normalizeFlags(options);
 
-  const { name, role, model, scope, output, target, tools, specialists, repoCount, description, instructions } = config;
+  const { name, role, model, scope, output, target, tools, specialists, repoCount, description, instructions, stack, dryRun } = config;
 
   const spin = spinner('Generating agent...').start();
 
@@ -21,7 +21,16 @@ async function runCreate(options = {}) {
     spin.succeed('Custom agent generated');
   } else {
     let stackResult = { primaryTech: 'Generic', framework: '', verifyCommands: '', stackParts: [], stackCsv: 'Generic' };
-    if (scope) {
+    if (stack) {
+      const parts = stack.split(',').map(s => s.trim()).filter(Boolean);
+      stackResult = {
+        primaryTech: parts[0] || 'Generic',
+        framework: parts[1] || '',
+        verifyCommands: '',
+        stackParts: parts,
+        stackCsv: parts.join(', '),
+      };
+    } else if (scope) {
       stackResult = await detect(scope);
     }
 
@@ -60,6 +69,13 @@ async function runCreate(options = {}) {
   const targetDirs = [];
   if (target === 'claude' || target === 'all') targetDirs.push('.claude/agents/');
   if (target === 'codex' || target === 'all') targetDirs.push('.agents/');
+
+  if (dryRun) {
+    log.info('--- DRY RUN: Agent preview ---');
+    console.log(body);
+    log.info('--- End preview ---');
+    return;
+  }
 
   if (!options.yes && isInteractive) {
     const confirmed = await confirmGeneration(name, targetDirs);
@@ -116,6 +132,8 @@ function normalizeFlags(options) {
     repoCount: options.repoCount || 0,
     description: options.description || '',
     instructions: options.instructions || '',
+    stack: options.stack || '',
+    dryRun: options.dryRun || false,
   };
 }
 
@@ -141,4 +159,4 @@ async function resolveCustomBody(instructions, name, description) {
   return `# ${name}\n\n${instructions}\n`;
 }
 
-module.exports = { runCreate };
+module.exports = { runCreate, normalizeFlags, formatSpecialistList };

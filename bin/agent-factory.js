@@ -38,6 +38,8 @@ program
   .option('-s, --scope <path>', 'Repository path (for stack detection)')
   .option('-o, --output <path>', 'Output directory (default: current dir)')
   .option('-t, --target <target>', 'Target: claude, codex, all', 'all')
+  .option('--stack <csv>', 'Override detected stack (comma-separated)')
+  .option('--dry-run', 'Preview generated agent without writing files')
   .option('--tools <tools>', 'Comma-separated tools: Read,Write,Edit,Bash')
   .option('--specialists <list>', 'CSV list of specialist agent names (for coordinator role)')
   .option('--repo-count <n>', 'Number of repos in workspace (for coordinator role)', parseInt)
