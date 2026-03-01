@@ -37,7 +37,12 @@ function buildSkillsFormat(name, description, body) {
   return `---\nname: ${name}\ndescription: "${description}"\n---\n\n${body}\n`;
 }
 
-async function writeAgent({ name, role, model, tools, body, outputDir, target, description: customDesc }) {
+function ensureAgentSuffix(name) {
+  return name.endsWith('-agent') ? name : `${name}-agent`;
+}
+
+async function writeAgent({ name: rawName, role, model, tools, body, outputDir, target, description: customDesc }) {
+  const name = ensureAgentSuffix(rawName);
   const results = { claude: null, codex: null, skills: null };
   const description = customDesc || body.split('\n').find((l) => l.trim() && !l.startsWith('#'))?.trim() || name;
 
@@ -73,4 +78,4 @@ async function writeAgent({ name, role, model, tools, body, outputDir, target, d
   return results;
 }
 
-module.exports = { writeAgent, buildClaudeFormat, buildCodexFormat, buildSkillsFormat, buildDescription, TOOLS_BY_ROLE };
+module.exports = { writeAgent, buildClaudeFormat, buildCodexFormat, buildSkillsFormat, buildDescription, ensureAgentSuffix, TOOLS_BY_ROLE };
