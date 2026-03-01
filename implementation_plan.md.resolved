@@ -1,0 +1,145 @@
+# Plan: `agent-factory` — CLI npm para crear agentes IA
+
+## Definición clara
+
+| Atributo | Valor |
+|---|---|
+| **Qué es** | CLI npm puro, ejecutable vía `npx agent-factory` |
+| **Qué NO es** | No es un SKILL. No incluye [SKILL.md](file:///Users/tacuchi/Git/multirepo-space/SKILL.md). |
+| **Quién lo ejecuta** | El desarrollador humano desde terminal |
+| **Targets v1** | Solo Claude Code + Codex |
+| **Futuro** | Un SKILL wrapper separado podrá invocar este CLI |
+
+## Formatos de salida (v1)
+
+| Directorio | Formato | Consumido por |
+|---|---|---|
+| `.claude/agents/<name>.md` | YAML frontmatter (`name`, `model`, `description`, `tools`) + body | Claude Code |
+| `.agents/<name>.md` | Plain markdown (sin frontmatter) | Codex |
+
+Flag `--target`: `claude` \| `codex` \| `all` (default: `all`)
+
+## Subcomandos
+
+```bash
+agent-factory detect <path>        # Detectar stack tecnológico
+agent-factory create [options]     # Crear un agente (interactivo o con flags)
+agent-factory init <path>          # Analizar repo y sugerir agentes
+agent-factory list [path]          # Listar agentes existentes
+```
+
+## Arquitectura
+
+```
+agent-factory/
+├── package.json
+├── README.md
+├── bin/
+│   └── agent-factory.js
+├── src/
+│   ├── commands/
+│   │   ├── create.js
+│   │   ├── init.js
+│   │   ├── list.js
+│   │   └── detect.js
+│   ├── core/
+│   │   ├── agent-writer.js        # Genera en 2 formatos (claude + codex)
+│   │   ├── stack-detector.js      # Port de detect.sh a JS
+│   │   └── template-engine.js     # Sustitución de {{placeholders}}
+│   └── utils/
+│       ├── logger.js
+│       └── prompts.js
+├── templates/
+│   └── roles/
+│       ├── specialist.md.tmpl
+│       ├── coordinator.md.tmpl
+│       ├── reviewer.md.tmpl
+│       └── architect.md.tmpl
+└── tests/
+    ├── stack-detector.test.js
+    ├── agent-writer.test.js
+    ├── template-engine.test.js
+    └── create-command.test.js
+```
+
+### Dependencias
+
+| Paquete | Uso |
+|---|---|
+| `commander` | CLI parsing |
+| `inquirer` | Prompts interactivos |
+| `chalk` | Colores en terminal |
+
+Zero network requests. Todo offline.
+
+## Fases (priorizando lo testeable primero)
+
+### Fase 1 — Core + [detect](file:///Users/tacuchi/Git/multirepo-space/lib/detect.sh#16-274)
+
+Los módulos fundamentales + el subcomando más simple para validar que funciona.
+
+| Archivo | Descripción |
+|---|---|
+| `src/core/stack-detector.js` | Port de [detect.sh](file:///Users/tacuchi/Git/multirepo-space/lib/detect.sh) a JS |
+| `src/core/template-engine.js` | Motor de templates |
+| `src/core/agent-writer.js` | Escritura en 2 formatos |
+| `src/utils/logger.js` | Log con colores |
+| `src/commands/detect.js` | Subcomando [detect](file:///Users/tacuchi/Git/multirepo-space/lib/detect.sh#16-274) |
+| `bin/agent-factory.js` | Entry point CLI |
+| `package.json` | Config npm con `bin` |
+| `tests/stack-detector.test.js` | Tests de detección |
+| `tests/template-engine.test.js` | Tests de templates |
+
+**Verificable con**: `node bin/agent-factory.js detect /path/to/repo` + `node --test`
+
+---
+
+### Fase 2 — `create`
+
+El subcomando principal.
+
+| Archivo | Descripción |
+|---|---|
+| `src/commands/create.js` | Modo interactivo + flags |
+| `src/utils/prompts.js` | Preguntas (nombre, rol, modelo, scope, tools) |
+| `templates/roles/*.md.tmpl` | Templates de specialist, coordinator, reviewer, architect |
+| `tests/agent-writer.test.js` | Tests de escritura multi-formato |
+| `tests/create-command.test.js` | Test E2E del subcomando |
+
+**Verificable con**: `node bin/agent-factory.js create --name test --role specialist --model sonnet --scope /tmp/test --output /tmp/out`
+
+---
+
+### Fase 3 — `init` + `list`
+
+Subcomandos complementarios.
+
+| Archivo | Descripción |
+|---|---|
+| `src/commands/init.js` | Detectar stack → sugerir agente → generar |
+| `src/commands/list.js` | Escanear `.claude/agents/` y `.agents/` → tabla |
+
+---
+
+### Fase 4 — Publicación npm
+
+| Tarea | Descripción |
+|---|---|
+| README.md completo | Docs, ejemplos, badges |
+| `npm publish` | Disponible vía `npx agent-factory` |
+| Integración con [multirepo-space](file:///Users/tacuchi/Git/multirepo-space/scripts/multirepo-space) | Reemplazar [write_agent_file()](file:///Users/tacuchi/Git/multirepo-space/scripts/multirepo-space#62-94) con llamada al CLI |
+
+## Fuera de scope (v2+)
+
+- [SKILL.md](file:///Users/tacuchi/Git/multirepo-space/SKILL.md) wrapper para que agentes IA invoquen el CLI
+- Soporte Gemini CLI, Cursor, Warp (`.agents/skills/`)
+- `AGENTS.md` / `CLAUDE.md` como project rules (se mantiene en [multirepo-space](file:///Users/tacuchi/Git/multirepo-space/scripts/multirepo-space))
+
+## Verificación por fase
+
+| Fase | Cómo se verifica |
+|---|---|
+| 1 | `node --test tests/stack-detector.test.js tests/template-engine.test.js` + `node bin/agent-factory.js detect <repo>` |
+| 2 | `node --test tests/agent-writer.test.js tests/create-command.test.js` + inspeccionar archivos generados en `.claude/agents/` y `.agents/` |
+| 3 | `node bin/agent-factory.js init <repo>` + `node bin/agent-factory.js list <workspace>` |
+| 4 | `npx agent-factory --help` funciona sin instalación previa |
