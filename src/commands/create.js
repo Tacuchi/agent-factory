@@ -1,8 +1,10 @@
 const path = require('path');
+const fs = require('fs-extra');
 const { detect } = require('../core/stack-detector');
 const { renderFile } = require('../core/template-engine');
 const { writeAgent, buildDescription, TOOLS_BY_ROLE } = require('../core/agent-writer');
 const { AgentValidator } = require('../core/agent-validator');
+const { validateTarget } = require('../core/target-profiles');
 const { log, spinner } = require('../utils/logger');
 const { askCreateOptions, confirmGeneration } = require('../utils/prompts');
 
@@ -10,10 +12,12 @@ async function runCreate(options = {}) {
   const isInteractive = !options.name;
   const config = isInteractive ? await askCreateOptions() : normalizeFlags(options);
 
-  const VALID_TARGETS = ['claude', 'codex'];
-  if (!isInteractive && !VALID_TARGETS.includes(config.target)) {
-    log.error('--target is required: claude or codex');
-    process.exit(1);
+  if (!isInteractive) {
+    const validation = validateTarget(config.target);
+    if (!validation.valid) {
+      log.error(validation.error);
+      process.exit(1);
+    }
   }
 
   const { name, role, model, scope, output, target, tools, specialists, repoCount, description, instructions, stack, dryRun } = config;
@@ -75,6 +79,9 @@ async function runCreate(options = {}) {
   const targetDirs = [];
   if (target === 'claude') targetDirs.push('.claude/agents/');
   if (target === 'codex') targetDirs.push('.agents/');
+  if (target === 'gemini') targetDirs.push('.gemini/agents/');
+  if (target === 'crush') targetDirs.push('.crush.json');
+  if (target === 'warp') targetDirs.push('.agents/skills/');
 
   if (dryRun) {
     log.info('--- DRY RUN: Agent preview ---');
@@ -105,7 +112,6 @@ async function runCreate(options = {}) {
 
   const validator = new AgentValidator();
   if (results.claude) {
-    const fs = require('fs-extra');
     const content = await fs.readFile(results.claude, 'utf8');
     const validation = validator.validate(content, `${name}.md`);
     if (validation.valid) {
@@ -115,13 +121,10 @@ async function runCreate(options = {}) {
     }
   }
 
-  if (results.codex) {
-    log.success(`Codex:   ${results.codex}`);
-  }
-
-  if (results.skills) {
-    log.success(`Skills:  ${results.skills}`);
-  }
+  if (results.codex) log.success(`Codex:   ${results.codex}`);
+  if (results.gemini) log.success(`Gemini:  ${results.gemini}`);
+  if (results.crush) log.success(`Crush:   ${results.crush}`);
+  if (results.skills) log.success(`Skills:  ${results.skills}`);
 }
 
 function normalizeFlags(options) {
@@ -157,7 +160,6 @@ async function resolveCustomBody(instructions, name, description) {
     return `# ${name}\n\n${description || 'Custom agent.'}\n`;
   }
 
-  const fs = require('fs-extra');
   if (instructions.endsWith('.md') && await fs.pathExists(instructions)) {
     return await fs.readFile(instructions, 'utf8');
   }

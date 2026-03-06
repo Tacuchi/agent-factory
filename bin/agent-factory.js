@@ -37,7 +37,7 @@ program
   .option('-m, --model <model>', 'Model: opus, sonnet, haiku', 'sonnet')
   .option('-s, --scope <path>', 'Repository path (for stack detection)')
   .option('-o, --output <path>', 'Output directory (default: current dir)')
-  .option('-t, --target <target>', 'Target: claude or codex')
+  .option('-t, --target <target>', 'Target: claude, codex, gemini, crush, warp')
   .option('--stack <csv>', 'Override detected stack (comma-separated)')
   .option('--dry-run', 'Preview generated agent without writing files')
   .option('--tools <tools>', 'Comma-separated tools: Read,Write,Edit,Bash')
@@ -52,15 +52,14 @@ program
   });
 
 program
-  .command('init <path>')
-  .description('Analyze repository and suggest agents')
-  .option('-o, --output <path>', 'Output directory (default: same as repo path)')
-  .option('-t, --target <target>', 'Target: claude or codex')
+  .command('init <target> [path]')
+  .description('Initialize single-repo agent setup (skills, AGENTS.md, agents)')
   .option('-m, --model <model>', 'Model for generated agents', 'sonnet')
   .option('-y, --yes', 'Skip confirmations')
-  .action(async (repoPath, options) => {
+  .option('--dry-run', 'Preview without writing files')
+  .action(async (target, repoPath, options) => {
     const { runInit } = require('../src/commands/init');
-    await runInit(repoPath, options);
+    await runInit(target, repoPath || '.', options);
   });
 
 program

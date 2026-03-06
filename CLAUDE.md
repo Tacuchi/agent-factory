@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-agent-factory is a Node.js CLI tool (`@tacuchi/agent-factory` v0.4.0) that generates AI agents for Claude Code, Codex, Gemini CLI, and other platforms. It analyzes repository tech stacks and auto-generates role-based agents with appropriate tools and instructions. Requires Node.js >= 16.
+agent-factory is a Node.js CLI tool (`@tacuchi/agent-factory` v0.5.0) that generates AI agents for Claude Code, Codex, Gemini CLI, and other platforms. It analyzes repository tech stacks and auto-generates role-based agents with appropriate tools and instructions. Supports single-repo setup (prowler-style: skills/, AGENTS.md, auto-invoke) and multi-repo workspace agents. Requires Node.js >= 16.
 
 ## Commands
 
@@ -36,20 +36,22 @@ make clean                 # rm /tmp/af-test-*
 ### Core Modules (`src/core/`)
 
 - **stack-detector.js** — Detects 14+ tech stacks from config files in priority order (package.json → pom.xml → build.gradle → pyproject.toml → go.mod → Cargo.toml → pubspec.yaml → .csproj → Gemfile → .sh → Makefile). Includes `sanitize()` to strip dangerous patterns and `deriveAlias()` for repo name normalization.
-- **agent-writer.js** — Generates agents in dual format: Claude Code (`.claude/agents/` with YAML frontmatter) and Codex/Gemini (`.agents/` plain markdown). Auto-appends `-agent` suffix to names. Assigns tools by role (specialists get Write/Edit, reviewers/architects get read-only).
+- **agent-writer.js** — Generates agents in dual format: Claude Code (`.claude/agents/` with YAML frontmatter) and Codex/Gemini (`.agents/` plain markdown). Auto-appends `-agent` suffix to names. Assigns tools by role. Skills get proper `metadata.scope`/`metadata.auto_invoke` in YAML frontmatter.
+- **agents-md-generator.js** — Scans `skills/*/SKILL.md`, extracts frontmatter metadata, generates `AGENTS.md` with skills table and auto-invoke table.
+- **target-setup.js** — Creates skills symlinks (`.claude/skills -> skills/`) and copies context files (`AGENTS.md -> CLAUDE.md`) per target.
 - **template-engine.js** — Simple `{{variable}}` interpolation against templates in `templates/roles/`.
 - **agent-validator.js** — Validates YAML frontmatter, detects secrets via regex, checks model/tools against known lists.
 
 ### Commands (`src/commands/`)
 
 - **detect.js** — `agent-factory detect <path>` — stack detection, supports `--json` output
-- **init.js** — `agent-factory init <path>` — auto-suggests and generates 2-3 agents based on stack complexity
+- **init.js** — `agent-factory init <target> [path]` — single-repo agent setup: generates skills/, AGENTS.md with auto-invoke, agents, context file, and skills symlink
 - **create.js** — `agent-factory create` — interactive or flag-driven single agent creation, supports `--dry-run`
 - **list.js** — `agent-factory list [path]` — lists and validates agents across `.claude/agents/`, `.agents/`, `.agents/skills/`
 
 ### Templates (`templates/roles/`)
 
-Four role templates (specialist, coordinator, reviewer, architect) written in **Spanish**. Variables: `{{name}}`, `{{primary_tech}}`, `{{tech_label}}`, `{{framework}}`, `{{scope}}`, `{{stack_list}}`, `{{stack_csv}}`, `{{verify_cmds}}`, `{{specialist_list}}`, `{{N}}`, `{{repos_word}}`.
+Four role templates (specialist, coordinator, reviewer, architect) written in **Spanish**. Plus infrastructure templates: `agents-md.md.tmpl` (AGENTS.md), `project-skill.md.tmpl` (project skill), `skills-readme.md.tmpl` (skills README). Variables: `{{name}}`, `{{primary_tech}}`, `{{tech_label}}`, `{{framework}}`, `{{scope}}`, `{{stack_list}}`, `{{stack_csv}}`, `{{verify_cmds}}`, `{{specialist_list}}`, `{{N}}`, `{{repos_word}}`, `{{alias}}`, `{{skills_reference}}`, `{{auto_invoke_rows}}`.
 
 ## Key Conventions
 

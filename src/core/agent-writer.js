@@ -1,6 +1,8 @@
 const fs = require('fs-extra');
 const path = require('path');
 const yaml = require('js-yaml');
+const { validateTarget } = require('./target-profiles');
+const { mapTools } = require('./tool-mapping');
 
 const TOOLS_BY_ROLE = {
   specialist: 'Read, Write, Edit, Bash',
@@ -22,6 +24,61 @@ function buildCodexFormat(body) {
   return `${body}\n`;
 }
 
+function buildGeminiFormat(name, description, model, tools, body) {
+  const fm = {
+    name,
+    kind: 'local',
+    description,
+    tools: tools.split(',').map((t) => t.trim()).filter(Boolean),
+    model: model === 'inherit' ? undefined : `gemini-3-${model === 'opus' ? 'pro' : model === 'haiku' ? 'flash' : 'pro'}`,
+    max_turns: 15,
+    timeout_mins: 5,
+  };
+  const frontmatter = yaml.dump(fm, { lineWidth: -1, quotingType: "'", forceQuotes: false }).trim();
+  return `---\n${frontmatter}\n---\n\n${body}\n`;
+}
+
+function buildCrushConfig(name, model) {
+  const crushModel = model === 'inherit' ? undefined : model;
+  return {
+    agents: {
+      coder: { model: crushModel, maxTokens: 8000 },
+      task: { model: crushModel, maxTokens: 5000 },
+      title: { model: crushModel, maxTokens: 80 },
+    },
+    options: {
+      initialize_as: 'AGENTS.md',
+    },
+  };
+}
+
+function deriveMetadata(role, name) {
+  const autoInvokeByRole = {
+    specialist: `Working on ${name} codebase`,
+    coordinator: 'Cross-repo coordination and task delegation',
+    reviewer: `Reviewing code in ${name} scope`,
+    architect: `Architecture decisions for ${name}`,
+  };
+  return {
+    scope: ['root'],
+    autoInvoke: autoInvokeByRole[role] || `Working with ${name}`,
+    version: '1.0',
+  };
+}
+
+function buildSkillsFormat(name, description, body, metadata = {}) {
+  const fm = { name, description };
+  const meta = Object.keys(metadata).length > 0 ? metadata : {};
+  if (Object.keys(meta).length > 0) {
+    fm.metadata = {};
+    if (meta.scope) fm.metadata.scope = Array.isArray(meta.scope) ? meta.scope : [meta.scope];
+    if (meta.autoInvoke) fm.metadata.auto_invoke = meta.autoInvoke;
+    if (meta.version) fm.metadata.version = meta.version;
+  }
+  const fmStr = yaml.dump(fm, { lineWidth: -1, quotingType: "'", forceQuotes: false }).trim();
+  return `---\n${fmStr}\n---\n\n${body}\n`;
+}
+
 function buildDescription(role, primaryTech, framework) {
   const tech = framework ? `${framework} (${primaryTech})` : primaryTech;
   const descriptions = {
@@ -33,43 +90,70 @@ function buildDescription(role, primaryTech, framework) {
   return descriptions[role] || `Agent for ${tech}`;
 }
 
-function buildSkillsFormat(name, description, body) {
-  return `---\nname: ${name}\ndescription: '${description}'\n---\n\n${body}\n`;
-}
-
 function ensureAgentSuffix(name) {
   return name.endsWith('-agent') ? name : `${name}-agent`;
 }
 
-async function writeAgent({ name: rawName, role, model, tools, body, outputDir, target, description: customDesc }) {
+async function writeAgent({ name: rawName, role, model, tools, body, outputDir, target, description: customDesc, metadata }) {
+  const validation = validateTarget(target);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const { profile } = validation;
   const name = ensureAgentSuffix(rawName);
-  const results = { claude: null, codex: null, skills: null };
+  const results = { claude: null, codex: null, gemini: null, crush: null, skills: null };
   const description = customDesc || body.split('\n').find((l) => l.trim() && !l.startsWith('#'))?.trim() || name;
-
   const resolvedTools = tools || TOOLS_BY_ROLE[role] || 'Read, Write, Edit, Bash';
+  const nativeTools = mapTools(resolvedTools, target);
 
-  if (target === 'claude') {
-    const claudeDir = path.join(outputDir, '.claude', 'agents');
-    await fs.ensureDir(claudeDir);
-    const claudeContent = buildClaudeFormat(name, description, model, resolvedTools, body);
-    const claudePath = path.join(claudeDir, `${name}.md`);
-    await fs.writeFile(claudePath, claudeContent, 'utf8');
-    results.claude = claudePath;
+  // Agent definition file
+  if (profile.agentDir) {
+    const agentDir = path.join(outputDir, profile.agentDir);
+    await fs.ensureDir(agentDir);
+
+    let content;
+    if (target === 'claude') {
+      content = buildClaudeFormat(name, description, model, resolvedTools, body);
+      const agentPath = path.join(agentDir, `${name}.md`);
+      await fs.writeFile(agentPath, content, 'utf8');
+      results.claude = agentPath;
+    } else if (target === 'gemini') {
+      content = buildGeminiFormat(name, description, model, nativeTools, body);
+      const agentPath = path.join(agentDir, `${name}.md`);
+      await fs.writeFile(agentPath, content, 'utf8');
+      results.gemini = agentPath;
+    } else if (target === 'codex') {
+      content = buildCodexFormat(body);
+      const agentPath = path.join(agentDir, `${name}.md`);
+      await fs.writeFile(agentPath, content, 'utf8');
+      results.codex = agentPath;
+    }
   }
 
-  if (target === 'codex') {
-    const codexDir = path.join(outputDir, '.agents');
-    await fs.ensureDir(codexDir);
-    const codexContent = buildCodexFormat(body);
-    const codexPath = path.join(codexDir, `${name}.md`);
-    await fs.writeFile(codexPath, codexContent, 'utf8');
-    results.codex = codexPath;
+  // Crush config (merge-safe)
+  if (target === 'crush' && profile.configFile) {
+    const configPath = path.join(outputDir, profile.configFile);
+    let existing = {};
+    if (await fs.pathExists(configPath)) {
+      try {
+        existing = JSON.parse(await fs.readFile(configPath, 'utf8'));
+      } catch { /* ignore malformed */ }
+    }
+    const crushConfig = buildCrushConfig(name, model);
+    const merged = { ...existing, ...crushConfig };
+    if (existing.agents) merged.agents = { ...existing.agents, ...crushConfig.agents };
+    if (existing.options) merged.options = { ...existing.options, ...crushConfig.options };
+    await fs.writeFile(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf8');
+    results.crush = configPath;
   }
 
-  if (target === 'codex') {
-    const skillsDir = path.join(outputDir, '.agents', 'skills', name);
+  // Skills (all targets except claude generate skills)
+  if (profile.skillsDir) {
+    const skillsDir = path.join(outputDir, profile.skillsDir, name);
     await fs.ensureDir(skillsDir);
-    const skillsContent = buildSkillsFormat(name, description, body);
+    const resolvedMeta = metadata || deriveMetadata(role, name);
+    const skillsContent = buildSkillsFormat(name, description, body, resolvedMeta);
     const skillsPath = path.join(skillsDir, 'SKILL.md');
     await fs.writeFile(skillsPath, skillsContent, 'utf8');
     results.skills = skillsPath;
@@ -78,4 +162,8 @@ async function writeAgent({ name: rawName, role, model, tools, body, outputDir, 
   return results;
 }
 
-module.exports = { writeAgent, buildClaudeFormat, buildCodexFormat, buildSkillsFormat, buildDescription, ensureAgentSuffix, TOOLS_BY_ROLE };
+module.exports = {
+  writeAgent, buildClaudeFormat, buildCodexFormat, buildGeminiFormat,
+  buildCrushConfig, buildSkillsFormat, buildDescription, ensureAgentSuffix,
+  deriveMetadata, TOOLS_BY_ROLE,
+};

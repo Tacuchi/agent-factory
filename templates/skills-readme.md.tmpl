@@ -1,0 +1,29 @@
+# AI Agent Skills
+
+This directory contains **Agent Skills** for this project. Skills provide domain-specific patterns, conventions, and guardrails that help AI coding assistants understand project-specific requirements.
+
+## How to Use Skills
+
+Skills are automatically discovered by the AI agent. To manually load a skill during a session:
+
+```
+Read skills/{skill-name}/SKILL.md
+```
+
+## Available Skills
+
+| Skill | Description |
+|-------|-------------|
+{{skills_table}}
+
+## Creating New Skills
+
+1. Create directory: `skills/{skill-name}/`
+2. Add `SKILL.md` with YAML frontmatter (`name`, `description`, `metadata.scope`, `metadata.auto_invoke`)
+3. Keep content concise — reference existing docs instead of duplicating
+
+## Design Principles
+
+- **Concise**: Only include what AI doesn't already know
+- **Critical rules first**: Lead with ALWAYS/NEVER patterns
+- **Minimal examples**: Show patterns, not tutorials

@@ -16,8 +16,11 @@ const MODELS = [
 ];
 
 const TARGETS = [
-  { name: 'claude — Only .claude/agents/', value: 'claude' },
-  { name: 'codex — Only .agents/', value: 'codex' },
+  { name: 'claude — .claude/agents/ + skills/', value: 'claude' },
+  { name: 'codex — .agents/ + skills/', value: 'codex' },
+  { name: 'gemini — .gemini/agents/ + skills/', value: 'gemini' },
+  { name: 'crush — .crush.json + skills/', value: 'crush' },
+  { name: 'warp — .agents/skills/ only', value: 'warp' },
 ];
 
 async function askCreateOptions() {
