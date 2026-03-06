@@ -10,6 +10,7 @@ async function runList(dirPath, options = {}) {
 
   const claudeDir = path.join(abs, '.claude', 'agents');
   const codexDir = path.join(abs, '.agents');
+  const geminiDir = path.join(abs, '.gemini', 'agents');
 
   if (await fs.pathExists(claudeDir)) {
     const files = (await fs.readdir(claudeDir)).filter((f) => f.endsWith('.md'));
@@ -29,6 +30,19 @@ async function runList(dirPath, options = {}) {
       }
       const content = await fs.readFile(path.join(codexDir, file), 'utf8');
       agents.push({ file, source: '.agents', content, format: 'codex' });
+    }
+  }
+
+  if (await fs.pathExists(geminiDir)) {
+    const files = (await fs.readdir(geminiDir)).filter((f) => f.endsWith('.md'));
+    for (const file of files) {
+      const existing = agents.find((a) => a.file === file);
+      if (existing) {
+        existing.geminiToo = true;
+        continue;
+      }
+      const content = await fs.readFile(path.join(geminiDir, file), 'utf8');
+      agents.push({ file, source: '.gemini/agents', content, format: 'gemini' });
     }
   }
 
@@ -96,14 +110,7 @@ async function runList(dirPath, options = {}) {
     const scoreStr = `${validation.score}/100`;
     const scoreColor = validation.score >= 90 ? '#10B981' : validation.score >= 70 ? '#F59E0B' : '#EF4444';
 
-    console.log(
-      padRow(
-        chalk.white(name),
-        chalk.gray(model),
-        chalk.gray(source),
-        chalk.hex(scoreColor)(scoreStr)
-      )
-    );
+    console.log(padRow(chalk.white(name), chalk.gray(model), chalk.gray(source), chalk.hex(scoreColor)(scoreStr)));
 
     if (options.verbose) {
       if (validation.errorCount > 0) {
@@ -120,12 +127,13 @@ async function runList(dirPath, options = {}) {
 
 function resolveSource(agent) {
   const parts = [];
-  if (agent.source === '.claude/agents' || agent.codexToo) parts.push('claude');
+  if (agent.source === '.claude/agents') parts.push('claude');
   if (agent.source === '.agents' || agent.codexToo) parts.push('codex');
-  if (agent.skillsToo || agent.source === '.agents/skills') parts.push('skills');
-  if (parts.length === 3) return 'all';
+  if (agent.source === '.gemini/agents' || agent.geminiToo) parts.push('gemini');
+  if (agent.source === '.agents/skills' || agent.skillsToo) parts.push('skills');
+  if (parts.length >= 4) return 'all';
   if (parts.length === 0) return agent.source;
-  return parts.join('+');
+  return [...new Set(parts)].join('+');
 }
 
 function padRow(name, model, source, score) {

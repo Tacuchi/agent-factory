@@ -28,6 +28,11 @@ describe('create command', () => {
       assert.equal(result.target, 'claude');
     });
 
+    it('passes through all target', () => {
+      const result = normalizeFlags({ name: 'test', target: 'all' });
+      assert.equal(result.target, 'all');
+    });
+
     it('propagates --stack flag', () => {
       const result = normalizeFlags({ name: 'test', stack: 'Bash,Shell' });
       assert.equal(result.stack, 'Bash,Shell');

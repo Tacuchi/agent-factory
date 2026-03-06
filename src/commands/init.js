@@ -3,6 +3,8 @@ const fs = require('fs-extra');
 const { detect, deriveAlias } = require('../core/stack-detector');
 const { renderFile } = require('../core/template-engine');
 const { writeAgent, TOOLS_BY_ROLE } = require('../core/agent-writer');
+const { buildOrchestrationProfile } = require('../core/orchestration-profile');
+const { TARGETS, isValidTarget } = require('../core/target-profiles');
 const { AgentValidator } = require('../core/agent-validator');
 const { log, spinner, chalk } = require('../utils/logger');
 const { askInitAgents } = require('../utils/prompts');
@@ -20,7 +22,7 @@ async function runInit(repoPath, options = {}) {
   const alias = deriveAlias(abs);
   spin.succeed(`Detected: ${stackResult.primaryTech}${stackResult.framework ? ` / ${stackResult.framework}` : ''}`);
 
-  const suggestions = buildSuggestions(alias, stackResult, abs);
+  const suggestions = buildSuggestions(alias, stackResult);
 
   log.info(`Suggested agents for ${chalk.white(alias)}:`);
   suggestions.forEach((s) => {
@@ -36,12 +38,12 @@ async function runInit(repoPath, options = {}) {
     }
   }
 
-  const VALID_TARGETS = ['claude', 'codex'];
   const target = options.target;
-  if (!VALID_TARGETS.includes(target)) {
-    log.error('--target is required: claude or codex');
+  if (!isValidTarget(target)) {
+    log.error(`--target is required: ${TARGETS.join(', ')}`);
     process.exit(1);
   }
+
   const model = options.model || 'sonnet';
   const outputDir = options.output ? path.resolve(options.output) : abs;
   const validator = new AgentValidator();
@@ -52,9 +54,10 @@ async function runInit(repoPath, options = {}) {
       primary_tech: stackResult.primaryTech,
       framework: stackResult.framework,
       scope: abs,
-      stack_list: stackResult.stackParts.length > 0
-        ? stackResult.stackParts.map((p) => `- ${p}`).join('\n')
-        : `- ${stackResult.primaryTech}`,
+      stack_list:
+        stackResult.stackParts.length > 0
+          ? stackResult.stackParts.map((p) => `- ${p}`).join('\n')
+          : `- ${stackResult.primaryTech}`,
       verify_cmds: stackResult.verifyCommands || 'N/A',
       stack_csv: stackResult.stackCsv,
     };
@@ -67,6 +70,15 @@ async function runInit(repoPath, options = {}) {
       continue;
     }
 
+    const orchestrationProfile = buildOrchestrationProfile({
+      name: agent.name,
+      role: agent.role,
+      scope: abs,
+      tools: TOOLS_BY_ROLE[agent.role],
+      instructions: body,
+      description: agent.description,
+    });
+
     const results = await writeAgent({
       name: agent.name,
       role: agent.role,
@@ -75,6 +87,7 @@ async function runInit(repoPath, options = {}) {
       body,
       outputDir,
       target,
+      orchestrationProfile,
     });
 
     if (results.claude) {
@@ -85,12 +98,21 @@ async function runInit(repoPath, options = {}) {
     if (results.codex) {
       log.success(`${agent.name} → .agents/`);
     }
+    if (results.gemini) {
+      log.success(`${agent.name} → .gemini/agents/`);
+    }
+    if (results.crush) {
+      log.success(`config → .crush.json`);
+    }
+    if (results.opencode) {
+      log.success(`config → .opencode.json`);
+    }
   }
 
   log.success(`${selected.length} agent(s) generated in ${outputDir}`);
 }
 
-function buildSuggestions(alias, stackResult, repoPath) {
+function buildSuggestions(alias, stackResult) {
   const suggestions = [];
   const tech = stackResult.framework || stackResult.primaryTech;
 

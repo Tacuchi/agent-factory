@@ -16,8 +16,13 @@ const MODELS = [
 ];
 
 const TARGETS = [
+  { name: 'all — Claude + Codex + Gemini + OpenCode + Crush + Warp', value: 'all' },
   { name: 'claude — Only .claude/agents/', value: 'claude' },
-  { name: 'codex — Only .agents/', value: 'codex' },
+  { name: 'codex — .agents/ and .agents/skills/', value: 'codex' },
+  { name: 'gemini — Only .gemini/agents/', value: 'gemini' },
+  { name: 'opencode — .agents/ + skills + .opencode.json', value: 'opencode' },
+  { name: 'crush — .agents/ + skills + .crush.json', value: 'crush' },
+  { name: 'warp — skills + docs/warp-oz/', value: 'warp' },
 ];
 
 async function askCreateOptions() {
