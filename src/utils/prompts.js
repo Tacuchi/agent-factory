@@ -16,7 +16,6 @@ const MODELS = [
 ];
 
 const TARGETS = [
-  { name: 'all — Claude Code + Codex/Gemini/Cursor', value: 'all' },
   { name: 'claude — Only .claude/agents/', value: 'claude' },
   { name: 'codex — Only .agents/', value: 'codex' },
 ];

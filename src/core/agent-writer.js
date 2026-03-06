@@ -13,7 +13,7 @@ const TOOLS_BY_ROLE = {
 function buildClaudeFormat(name, description, model, tools, body) {
   const frontmatter = yaml.dump(
     { name, description, tools, model },
-    { lineWidth: -1, quotingType: '"', forceQuotes: false }
+    { lineWidth: -1, quotingType: "'", forceQuotes: false }
   ).trim();
   return `---\n${frontmatter}\n---\n\n${body}\n`;
 }
@@ -34,7 +34,7 @@ function buildDescription(role, primaryTech, framework) {
 }
 
 function buildSkillsFormat(name, description, body) {
-  return `---\nname: ${name}\ndescription: "${description}"\n---\n\n${body}\n`;
+  return `---\nname: ${name}\ndescription: '${description}'\n---\n\n${body}\n`;
 }
 
 function ensureAgentSuffix(name) {
@@ -48,7 +48,7 @@ async function writeAgent({ name: rawName, role, model, tools, body, outputDir, 
 
   const resolvedTools = tools || TOOLS_BY_ROLE[role] || 'Read, Write, Edit, Bash';
 
-  if (target === 'claude' || target === 'all') {
+  if (target === 'claude') {
     const claudeDir = path.join(outputDir, '.claude', 'agents');
     await fs.ensureDir(claudeDir);
     const claudeContent = buildClaudeFormat(name, description, model, resolvedTools, body);
@@ -57,7 +57,7 @@ async function writeAgent({ name: rawName, role, model, tools, body, outputDir, 
     results.claude = claudePath;
   }
 
-  if (target === 'codex' || target === 'all') {
+  if (target === 'codex') {
     const codexDir = path.join(outputDir, '.agents');
     await fs.ensureDir(codexDir);
     const codexContent = buildCodexFormat(body);
@@ -66,7 +66,7 @@ async function writeAgent({ name: rawName, role, model, tools, body, outputDir, 
     results.codex = codexPath;
   }
 
-  if (target === 'codex' || target === 'all') {
+  if (target === 'codex') {
     const skillsDir = path.join(outputDir, '.agents', 'skills', name);
     await fs.ensureDir(skillsDir);
     const skillsContent = buildSkillsFormat(name, description, body);

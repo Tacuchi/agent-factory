@@ -36,7 +36,12 @@ async function runInit(repoPath, options = {}) {
     }
   }
 
-  const target = options.target || 'all';
+  const VALID_TARGETS = ['claude', 'codex'];
+  const target = options.target;
+  if (!VALID_TARGETS.includes(target)) {
+    log.error('--target is required: claude or codex');
+    process.exit(1);
+  }
   const model = options.model || 'sonnet';
   const outputDir = options.output ? path.resolve(options.output) : abs;
   const validator = new AgentValidator();

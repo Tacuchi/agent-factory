@@ -1,6 +1,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const yaml = require('js-yaml');
 const { normalizeFlags, formatSpecialistList } = require('../src/commands/create');
+const { buildSkillsFormat, buildClaudeFormat } = require('../src/core/agent-writer');
 
 describe('create command', () => {
   describe('normalizeFlags()', () => {
@@ -10,7 +12,7 @@ describe('create command', () => {
       assert.equal(result.role, 'specialist');
       assert.equal(result.model, 'sonnet');
       assert.equal(result.scope, '');
-      assert.equal(result.target, 'all');
+      assert.equal(result.target, undefined);
       assert.equal(result.tools, '');
       assert.equal(result.yes, false);
       assert.equal(result.specialists, '');
@@ -19,6 +21,11 @@ describe('create command', () => {
       assert.equal(result.instructions, '');
       assert.equal(result.stack, '');
       assert.equal(result.dryRun, false);
+    });
+
+    it('passes through explicit target', () => {
+      const result = normalizeFlags({ name: 'test', target: 'claude' });
+      assert.equal(result.target, 'claude');
     });
 
     it('propagates --stack flag', () => {
@@ -66,6 +73,24 @@ describe('create command', () => {
     it('trims whitespace from names', () => {
       const result = formatSpecialistList(' a , b ');
       assert.equal(result, '`a` y `b`');
+    });
+  });
+
+  describe('YAML Windows path safety', () => {
+    it('buildSkillsFormat produces valid YAML with Windows paths', () => {
+      const desc = 'Spring Boot specialist — scope: `C:\\Source\\my-app`';
+      const output = buildSkillsFormat('test-agent', desc, '# body');
+      const match = output.match(/^---\n([\s\S]*?)\n---/);
+      const parsed = yaml.load(match[1]);
+      assert.equal(parsed.description, desc);
+    });
+
+    it('buildClaudeFormat produces valid YAML with Windows paths', () => {
+      const desc = 'Specialist — scope: `C:\\Source\\my-app`';
+      const output = buildClaudeFormat('test-agent', desc, 'sonnet', 'Read, Write', '# body');
+      const match = output.match(/^---\n([\s\S]*?)\n---/);
+      const parsed = yaml.load(match[1]);
+      assert.equal(parsed.description, desc);
     });
   });
 });

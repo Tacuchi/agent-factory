@@ -10,6 +10,12 @@ async function runCreate(options = {}) {
   const isInteractive = !options.name;
   const config = isInteractive ? await askCreateOptions() : normalizeFlags(options);
 
+  const VALID_TARGETS = ['claude', 'codex'];
+  if (!isInteractive && !VALID_TARGETS.includes(config.target)) {
+    log.error('--target is required: claude or codex');
+    process.exit(1);
+  }
+
   const { name, role, model, scope, output, target, tools, specialists, repoCount, description, instructions, stack, dryRun } = config;
 
   const spin = spinner('Generating agent...').start();
@@ -67,8 +73,8 @@ async function runCreate(options = {}) {
 
   const outputDir = output || process.cwd();
   const targetDirs = [];
-  if (target === 'claude' || target === 'all') targetDirs.push('.claude/agents/');
-  if (target === 'codex' || target === 'all') targetDirs.push('.agents/');
+  if (target === 'claude') targetDirs.push('.claude/agents/');
+  if (target === 'codex') targetDirs.push('.agents/');
 
   if (dryRun) {
     log.info('--- DRY RUN: Agent preview ---');
@@ -125,7 +131,7 @@ function normalizeFlags(options) {
     model: options.model || 'sonnet',
     scope: options.scope ? path.resolve(options.scope) : '',
     output: options.output ? path.resolve(options.output) : process.cwd(),
-    target: options.target || 'all',
+    target: options.target,
     tools: options.tools || '',
     yes: options.yes || false,
     specialists: options.specialists || '',
