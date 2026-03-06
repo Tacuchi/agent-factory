@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-agent-factory is a Node.js CLI tool (`@tacuchi/agent-factory` v0.5.0) that generates AI agents for Claude Code, Codex, Gemini CLI, and other platforms. It analyzes repository tech stacks and auto-generates role-based agents with appropriate tools and instructions. Supports single-repo setup (prowler-style: skills/, AGENTS.md, auto-invoke) and multi-repo workspace agents. Requires Node.js >= 16.
+agent-factory is a Node.js CLI tool (`@tacuchi/agent-factory` v0.9.0) that generates AI agents for Claude Code, Codex, Gemini CLI, and other platforms. It analyzes repository tech stacks and auto-generates role-based agents with appropriate tools and instructions. Supports single-repo setup (prowler-style: skills/, AGENTS.md, auto-invoke) and multi-repo workspace agents. Requires Node.js >= 16.
 
 ## Commands
 

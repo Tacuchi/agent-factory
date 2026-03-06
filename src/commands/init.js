@@ -5,8 +5,7 @@ const { renderFile } = require('../core/template-engine');
 const { writeAgent, TOOLS_BY_ROLE } = require('../core/agent-writer');
 const { AgentValidator } = require('../core/agent-validator');
 const { validateTarget } = require('../core/target-profiles');
-const { generateAgentsMd } = require('../core/agents-md-generator');
-const { copyContextFile, createSkillsSymlink } = require('../core/target-setup');
+const { createSkillsSymlink } = require('../core/target-setup');
 const { log, spinner, chalk } = require('../utils/logger');
 const { askInitAgents } = require('../utils/prompts');
 
@@ -81,14 +80,6 @@ async function runInit(target, repoPath, options = {}) {
   // Generate skills/README.md
   await generateSkillsReadme(abs, alias, stackResult);
 
-  // Generate AGENTS.md with auto-invoke tables
-  const agentsMdPath = await generateAgentsMd(abs, { alias, stackResult, agents: selected });
-  log.success(`AGENTS:  ${path.relative(abs, agentsMdPath)}`);
-
-  // Copy AGENTS.md -> CLAUDE.md / GEMINI.md
-  const contextPath = await copyContextFile(abs, target);
-  if (contextPath) log.success(`Context: ${path.relative(abs, contextPath)}`);
-
   // Create skills symlink (.claude/skills -> skills/)
   const symlinkPath = await createSkillsSymlink(abs, target);
   if (symlinkPath) log.success(`Symlink: ${path.relative(abs, symlinkPath)} -> skills/`);
@@ -128,10 +119,10 @@ function logAgentResults(results, agentName, validator, target) {
 }
 
 async function generateProjectSkill(repoPath, alias, stackResult) {
-  const skillDir = path.join(repoPath, 'skills', `${alias}-dev`);
+  const skillDir = path.join(repoPath, 'skills', `${alias}-coordinator`);
   await fs.ensureDir(skillDir);
 
-  const templatePath = path.join(TEMPLATES_DIR, 'project-skill.md.tmpl');
+  const templatePath = path.join(TEMPLATES_DIR, 'orchestrator-skill.md.tmpl');
   let template;
   if (await fs.pathExists(templatePath)) {
     template = await fs.readFile(templatePath, 'utf8');
@@ -147,7 +138,7 @@ async function generateProjectSkill(repoPath, alias, stackResult) {
     .replace(/\{\{alias\}\}/g, alias)
     .replace(/\{\{primary_tech\}\}/g, stackResult.primaryTech)
     .replace(/\{\{stack_list\}\}/g, stackList)
-    .replace(/\{\{verify_cmds\}\}/g, stackResult.verifyCommands || 'npm test');
+    .replace(/\{\{verify_cmds\}\}/g, stackResult.verifyCommands || 'N/A');
 
   const skillPath = path.join(skillDir, 'SKILL.md');
   await fs.writeFile(skillPath, content, 'utf8');
@@ -156,26 +147,26 @@ async function generateProjectSkill(repoPath, alias, stackResult) {
 
 function buildFallbackSkillTemplate() {
   return `---
-name: {{alias}}-dev
+name: {{alias}}-coordinator
 description: >
-  Main development skill for {{alias}}.
-  Trigger: General {{primary_tech}} development questions.
+  Root orchestrator skill for {{alias}}.
 metadata:
   version: '1.0'
   scope:
     - root
-  auto_invoke: 'General {{alias}} development questions'
+  auto_invoke: 'General {{alias}} requests or entry point'
 ---
 
-## Stack
+# Coordinator (Orchestrator)
 
-{{stack_list}}
+**Domain:** {{stack_list}}
+
+You are the ROOT coordinator for the \`{{alias}}\` repository. Your primary job is **NOT** to write code directly. Your job is to **ORCHESTRATE**.
 
 ## Commands
 
-\`\`\`bash
-{{verify_cmds}}
-\`\`\`
+Use your available agent tools (e.g. \`read_file\`, \`slack_message\`, etc.) to coordinate. 
+If no specialist exists for a domain, only then you may attempt to resolve the issue directly using \`{{verify_cmds}}\` to verify.
 `;
 }
 
@@ -188,7 +179,7 @@ async function generateSkillsReadme(repoPath, alias, stackResult) {
   if (await fs.pathExists(templatePath)) {
     const template = await fs.readFile(templatePath, 'utf8');
     content = template.replace(/\{\{skills_table\}\}/g,
-      `| \`${alias}-dev\` | Main development skill for ${alias} |`
+      `| \`${alias}-coordinator\` | Root orchestrator skill for ${alias} |`
     );
   } else {
     content = `# AI Agent Skills\n\nSee individual SKILL.md files for details.\n`;

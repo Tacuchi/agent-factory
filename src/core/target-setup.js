@@ -18,18 +18,6 @@ const SKILLS_SYMLINK_DIR = {
     warp: null,
 };
 
-async function copyContextFile(repoPath, target) {
-    const contextFileName = CONTEXT_FILES[target];
-    if (!contextFileName) return null;
-
-    const agentsMdPath = path.join(repoPath, 'AGENTS.md');
-    if (!await fs.pathExists(agentsMdPath)) return null;
-
-    const destPath = path.join(repoPath, contextFileName);
-    await fs.copy(agentsMdPath, destPath);
-    return destPath;
-}
-
 async function createSkillsSymlink(repoPath, target) {
     const symlinkDir = SKILLS_SYMLINK_DIR[target];
     if (!symlinkDir) return null;
@@ -55,4 +43,4 @@ async function createSkillsSymlink(repoPath, target) {
     return symlinkPath;
 }
 
-module.exports = { copyContextFile, createSkillsSymlink, CONTEXT_FILES, SKILLS_SYMLINK_DIR };
+module.exports = { createSkillsSymlink, CONTEXT_FILES, SKILLS_SYMLINK_DIR };
